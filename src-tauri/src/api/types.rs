@@ -1,0 +1,204 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntitlementsResponse {
+    #[serde(rename = "accessToken")]
+    pub access_token: String,
+    pub token: String,
+    pub subject: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionData {
+    #[serde(rename = "launchConfiguration")]
+    pub launch_configuration: Option<LaunchConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LaunchConfig {
+    pub arguments: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VersionResponse {
+    pub data: Option<VersionData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VersionData {
+    #[serde(rename = "riotClientVersion")]
+    pub riot_client_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PregamePlayer {
+    #[serde(rename = "MatchID")]
+    pub match_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PregameMatch {
+    #[serde(rename = "MapID")]
+    pub map_id: String,
+    #[serde(rename = "QueueID")]
+    pub queue_id: String,
+    pub ally_team: Option<PregameTeam>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PregameTeam {
+    #[serde(rename = "TeamID")]
+    pub team_id: String,
+    pub players: Vec<PregamePlayerInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PregamePlayerInfo {
+    pub subject: String,
+    #[serde(rename = "CharacterID")]
+    pub character_id: String,
+    pub character_selection_state: String,
+    pub competitive_tier: i32,
+    pub player_identity: Option<PlayerIdentity>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PlayerIdentity {
+    pub account_level: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct CoregamePlayer {
+    #[serde(rename = "MatchID")]
+    pub match_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct CoregameMatch {
+    #[serde(rename = "MapID")]
+    pub map_id: String,
+    pub players: Vec<CoregamePlayerInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct CoregamePlayerInfo {
+    pub subject: String,
+    #[serde(rename = "CharacterID")]
+    pub character_id: String,
+    #[serde(rename = "TeamID")]
+    pub team_id: String,
+    pub player_identity: Option<PlayerIdentity>,
+    pub seasonal_badge_info: Option<SeasonalBadgeInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct SeasonalBadgeInfo {
+    pub rank: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PlayerNameInfo {
+    pub subject: String,
+    pub game_name: String,
+    pub tag_line: String,
+}
+
+// Frontend types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionStatus {
+    pub connected: bool,
+    pub region: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameState {
+    pub state: String, // "idle" | "pregame" | "ingame"
+    pub match_id: Option<String>,
+    pub map_name: Option<String>,
+    pub mode_name: Option<String>,
+    pub side: Option<String>,
+    pub allies: Vec<PlayerData>,
+    pub enemies: Vec<PlayerData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerData {
+    pub puuid: String,
+    pub name: String,
+    pub agent: String,
+    pub locked: bool,
+    pub party: String,
+    pub is_me: bool,
+    pub rank_tier: i32,
+    pub rank_rr: i32,
+    pub level: i32,
+}
+
+
+// Presence types for party detection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PresencesResponse {
+    pub presences: Vec<Presence>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Presence {
+    pub puuid: String,
+    pub private: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresencePrivate {
+    pub party_id: Option<String>,
+}
+
+// Party types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PartyPlayerResponse {
+    #[serde(rename = "CurrentPartyID")]
+    pub current_party_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PartyResponse {
+    pub members: Vec<PartyMember>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PartyMember {
+    pub subject: Option<String>,
+}
+
+// MMR types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MmrResponse {
+    pub queue_skills: Option<QueueSkills>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueSkills {
+    pub competitive: Option<CompetitiveSkill>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct CompetitiveSkill {
+    pub competitive_tier: Option<u32>,
+    pub ranked_rating: Option<u32>,
+}
