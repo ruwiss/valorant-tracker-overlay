@@ -314,8 +314,8 @@ impl ValorantAPI {
         (None, vec![])
     }
 
-    /// Detect parties for a list of players
-    /// Uses multiple strategies: my party, presences (friends), and match history
+    /// Detect parties for a list of players (legacy - kept for compatibility)
+    #[allow(dead_code)]
     pub async fn detect_parties(&self, puuids: &[String]) -> HashMap<String, String> {
         let mut party_map: HashMap<String, String> = HashMap::new();
         let mut party_counter: HashMap<String, u32> = HashMap::new();
@@ -407,6 +407,7 @@ impl ValorantAPI {
     }
 
     /// Get player MMR/rank
+    #[allow(dead_code)]
     pub async fn get_player_mmr(&self, puuid: &str) -> (u32, u32) {
         let url = self.pd_url(&format!("/mmr/v1/players/{}", puuid));
         if let Some(data) = self.get_remote::<MmrResponse>(&url).await {
@@ -441,7 +442,7 @@ impl ValorantAPI {
     }
 
     /// Detect parties using match history - checks last match for party groupings
-    /// This works for ALL players including enemies and non-friends
+    #[allow(dead_code)]
     pub async fn detect_parties_via_history(&self, puuids: &[String]) -> HashMap<String, String> {
         let mut party_map: HashMap<String, String> = HashMap::new();
         let mut party_counter: HashMap<String, u32> = HashMap::new();
@@ -514,6 +515,12 @@ impl ValorantAPI {
     /// Get current game loadouts for all players
     pub async fn get_coregame_loadouts(&self, match_id: &str) -> Option<LoadoutsResponse> {
         let url = self.glz_url(&format!("/core-game/v1/matches/{}/loadouts", match_id));
+        self.get_remote(&url).await
+    }
+
+    /// Get pregame loadouts for all players
+    pub async fn get_pregame_loadouts(&self, match_id: &str) -> Option<PregameLoadoutsResponse> {
+        let url = self.glz_url(&format!("/pregame/v1/matches/{}/loadouts", match_id));
         self.get_remote(&url).await
     }
 

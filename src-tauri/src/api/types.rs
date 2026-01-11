@@ -185,17 +185,20 @@ pub struct PartyMember {
 }
 
 // MMR types
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MmrResponse {
     pub queue_skills: Option<QueueSkills>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueueSkills {
     pub competitive: Option<CompetitiveSkill>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct CompetitiveSkill {
@@ -263,6 +266,21 @@ pub struct PlayerLoadout {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct LoadoutData {
+    pub subject: String,
+    pub items: std::collections::HashMap<String, LoadoutItem>,
+}
+
+// Pregame loadout types (different structure)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PregameLoadoutsResponse {
+    pub loadouts: Vec<PregameLoadoutData>,
+    pub loadouts_valid: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PregameLoadoutData {
     pub subject: String,
     pub items: std::collections::HashMap<String, LoadoutItem>,
 }
