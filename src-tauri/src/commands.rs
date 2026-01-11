@@ -152,9 +152,16 @@ pub async fn get_game_state(state: State<'_, AppState>) -> Result<GameState, Str
         }
     }
 
-    // Clear party cache when idle (no match)
-    *state.parties_match_id.write() = None;
-    state.fetched_history_players.write().clear();
+    // Clear party cache when idle (no match) - only if we were in a game session
+    {
+        let was_in_game = *state.in_game_session.read();
+        if was_in_game {
+            // Returning to lobby - clear all caches for next game
+            state.cached_parties.write().clear();
+            state.fetched_history_players.write().clear();
+            *state.in_game_session.write() = false;
+        }
+    }
 
     Ok(GameState {
         state: "idle".into(),
@@ -167,25 +174,16 @@ pub async fn get_game_state(state: State<'_, AppState>) -> Result<GameState, Str
     })
 }
 
-/// Get parties with caching - only fetches once per match_id
-/// Also tracks which players' history has been fetched to avoid duplicate API calls
+/// Get parties with caching - persists across pregame->ingame transition
+/// Only clears when returning to idle state (lobby)
 async fn get_cached_parties(
     state: &State<'_, AppState>,
-    match_id: &str,
+    _match_id: &str,
     puuids: &[String],
     api: &crate::api::ValorantAPI,
 ) -> HashMap<String, String> {
-    // Check if match changed - if so, clear all caches
-    {
-        let cached_match = state.parties_match_id.read();
-        if cached_match.as_ref() != Some(&match_id.to_string()) {
-            // New match - clear everything
-            drop(cached_match);
-            state.fetched_history_players.write().clear();
-            state.cached_parties.write().clear();
-            *state.parties_match_id.write() = Some(match_id.to_string());
-        }
-    }
+    // Mark that we're in a game session
+    *state.in_game_session.write() = true;
 
     // Get existing cached parties
     let mut cached = state.cached_parties.read().clone();
@@ -196,7 +194,7 @@ async fn get_cached_parties(
         return cached;
     }
 
-    // Determine which players need history fetch (not fetched before this game)
+    // Determine which players need history fetch (not fetched before this game session)
     let players_needing_fetch: Vec<String> = {
         let fetched = state.fetched_history_players.read();
         puuids.iter()
