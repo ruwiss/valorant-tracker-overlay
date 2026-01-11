@@ -117,15 +117,16 @@ export const SKIN_API_LOCALES: Record<Locale, string> = {
 export const useI18n = create<I18nStore>()(
   persist(
     (set, get) => ({
-      locale: "en",
-      setLocale: (locale) => set({ locale }),
-      t: (key) => {
+      locale: "en" as Locale,
+      setLocale: (locale: Locale) => set({ locale }),
+      t: (key: string) => {
         const { locale } = get();
         return translations[locale][key] || translations.en[key] || key;
       },
     }),
     {
-      name: "valorant-tracker-i18n",
+      name: "valorant-tracker-locale",
+      partialize: (state) => ({ locale: state.locale }),
     }
   )
 );

@@ -8,9 +8,12 @@ interface WindowPosition {
   y: number;
 }
 
-interface SettingsStore {
+interface SettingsState {
   hotkey: string;
   windowPosition: WindowPosition | null;
+}
+
+interface SettingsStore extends SettingsState {
   isHotkeyPaused: boolean;
   setHotkey: (key: string) => Promise<boolean>;
   setWindowPosition: (pos: WindowPosition) => void;
@@ -59,6 +62,11 @@ export const useSettingsStore = create<SettingsStore>()(
         }
 
         try {
+          // Unregister old hotkey first
+          try {
+            await unregister(currentKey);
+          } catch {}
+
           // Register new hotkey
           await register(newKey, toggleWindow);
           set({ hotkey: newKey, isHotkeyPaused: false });
@@ -66,7 +74,9 @@ export const useSettingsStore = create<SettingsStore>()(
         } catch (error) {
           console.error("Failed to register hotkey:", error);
           // Restore old hotkey
-          await register(currentKey, toggleWindow).catch(() => {});
+          try {
+            await register(currentKey, toggleWindow);
+          } catch {}
           set({ isHotkeyPaused: false });
           return false;
         }
@@ -133,7 +143,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "valorant-tracker-settings",
-      partialize: (state) => ({
+      partialize: (state): SettingsState => ({
         hotkey: state.hotkey,
         windowPosition: state.windowPosition,
       }),
