@@ -1,50 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { register } from "@tauri-apps/plugin-global-shortcut";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { WaitingState } from "./components/WaitingState";
 import { PregameState } from "./components/PregameState";
 import { IngameState } from "./components/IngameState";
-import { AgentLockModal } from "./components/SettingsModal";
-import { ApiSettingsModal } from "./components/ApiSettingsModal";
+import { SidePanel } from "./components/SidePanel";
+import { WeaponOverlay } from "./components/WeaponOverlay";
 import { useGameStore } from "./stores/gameStore";
+import { useSettingsStore } from "./stores/settingsStore";
+import { useAssetsStore } from "./stores/assetsStore";
 
 let shortcutRegistered = false;
-let isToggling = false;
 
 function App() {
   const { initialize, fetchGameState, gameState } = useGameStore();
-  const [agentLockOpen, setAgentLockOpen] = useState(false);
-  const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
+  const { registerHotkey, restoreWindowPosition, saveCurrentPosition } = useSettingsStore();
+  const { loadAssets } = useAssetsStore();
+  const positionInitialized = useRef(false);
 
   useEffect(() => {
     initialize();
+    loadAssets();
 
-    // F2 global shortcut
     if (!shortcutRegistered) {
       shortcutRegistered = true;
-      register("F2", async () => {
-        if (isToggling) return;
-        isToggling = true;
-
-        const win = getCurrentWindow();
-        const visible = await win.isVisible();
-        if (visible) {
-          await win.hide();
-        } else {
-          await win.show();
-        }
-
-        setTimeout(() => {
-          isToggling = false;
-        }, 300);
-      }).catch(console.error);
+      registerHotkey();
     }
 
-    // Polling
+    if (!positionInitialized.current) {
+      positionInitialized.current = true;
+      restoreWindowPosition();
+    }
+
+    let unlisten: (() => void) | null = null;
+    const setupMoveListener = async () => {
+      const win = getCurrentWindow();
+      unlisten = await win.onMoved(() => {
+        saveCurrentPosition();
+      });
+    };
+    setupMoveListener();
+
     const interval = setInterval(fetchGameState, 3000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (unlisten) unlisten();
+    };
   }, []);
 
   const renderContent = () => {
@@ -59,12 +61,19 @@ function App() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-dark p-4 pl-5">
-      <Header />
-      {renderContent()}
-      <Footer onOpenAgentLock={() => setAgentLockOpen(true)} onOpenApiSettings={() => setApiSettingsOpen(true)} />
-      <AgentLockModal open={agentLockOpen} onClose={() => setAgentLockOpen(false)} />
-      <ApiSettingsModal open={apiSettingsOpen} onClose={() => setApiSettingsOpen(false)} />
+    <div className="h-full flex bg-dark">
+      {/* Main content */}
+      <div className="relative flex-1 flex flex-col p-4 pl-5 min-w-0">
+        <Header />
+        {renderContent()}
+        <Footer />
+
+        {/* Weapon hover overlay */}
+        <WeaponOverlay />
+      </div>
+
+      {/* Side panel */}
+      <SidePanel />
     </div>
   );
 }

@@ -526,22 +526,45 @@ impl ValorantAPI {
 
     /// Detect parties with player-level caching
     /// Only fetches match history for players in `players_to_fetch` (once per game session)
+    /// `existing_cache` preserves party assignments from previous calls for consistency
     pub async fn detect_parties_with_cache(
         &self,
         all_puuids: &[String],
-        players_to_fetch: &[String]
+        players_to_fetch: &[String],
+        existing_cache: &HashMap<String, String>,
     ) -> HashMap<String, String> {
         let mut party_map: HashMap<String, String> = HashMap::new();
         let mut party_id_to_num: HashMap<String, u32> = HashMap::new();
-        let mut next_party_num: u32 = 1;
 
-        // Step 1: Get my party and presences (fast, no rate limit concern)
+        // Start numbering from existing cache to maintain consistency
+        let mut next_party_num: u32 = 1;
+        for tag in existing_cache.values() {
+            if tag.starts_with("Grup-") {
+                if let Ok(num) = tag.trim_start_matches("Grup-").parse::<u32>() {
+                    if num >= next_party_num {
+                        next_party_num = num + 1;
+                    }
+                }
+            }
+        }
+
+        // Step 1: Preserve existing cache entries
+        for (puuid, party) in existing_cache {
+            party_map.insert(puuid.clone(), party.clone());
+        }
+
+        // Step 2: Get my party and presences for new players
         let (my_party_id, my_party_members) = self.get_my_party().await;
         let presences = self.get_presences().await;
 
         let mut found_via_presence: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         for puuid in all_puuids {
+            // Skip if already in cache
+            if party_map.contains_key(puuid) {
+                continue;
+            }
+
             // Check my party
             if let Some(ref my_pid) = my_party_id {
                 if my_party_members.contains(puuid) {
@@ -566,10 +589,10 @@ impl ValorantAPI {
             }
         }
 
-        // Step 2: For players not found via presence AND in players_to_fetch, use match history
+        // Step 3: For players not found via presence AND in players_to_fetch, use match history
         let need_history: Vec<String> = players_to_fetch
             .iter()
-            .filter(|p| !found_via_presence.contains(*p))
+            .filter(|p| !found_via_presence.contains(*p) && !party_map.contains_key(*p))
             .cloned()
             .collect();
 
@@ -593,8 +616,13 @@ impl ValorantAPI {
                     }
                 }
 
-                // Apply party info to players needing history
-                for puuid in &need_history {
+                // Apply party info to ALL players needing it (not just need_history)
+                // This catches teammates who might be in the same match
+                for puuid in all_puuids {
+                    if party_map.contains_key(puuid) {
+                        continue;
+                    }
+
                     if let Some(party_id) = match_parties.get(puuid) {
                         if !party_id.is_empty() {
                             if !party_id_to_num.contains_key(party_id) {
@@ -608,20 +636,24 @@ impl ValorantAPI {
             }
         }
 
-        // Step 3: Mark remaining as Solo
+        // Step 4: Mark remaining as Solo
         for puuid in all_puuids {
             if !party_map.contains_key(puuid) {
                 party_map.insert(puuid.clone(), "Solo".into());
             }
         }
 
-        // Step 4: Filter single-person groups
+        // Step 5: Filter single-person groups (but preserve existing cache assignments)
         let mut party_sizes: HashMap<String, u32> = HashMap::new();
         for tag in party_map.values() {
             *party_sizes.entry(tag.clone()).or_insert(0) += 1;
         }
 
-        for (_puuid, tag) in party_map.iter_mut() {
+        for (puuid, tag) in party_map.iter_mut() {
+            // Don't modify entries that were in existing cache
+            if existing_cache.contains_key(puuid) {
+                continue;
+            }
             if tag.starts_with("Grup-") && party_sizes.get(tag).copied().unwrap_or(0) == 1 {
                 *tag = "Solo".into();
             }

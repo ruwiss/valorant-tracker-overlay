@@ -1,20 +1,18 @@
-import { useState } from "react";
 import { PlayerCard } from "./PlayerCard";
-import { PlayerStatsModal } from "./PlayerStatsModal";
 import { useGameStore } from "../stores/gameStore";
-import type { PlayerData } from "../lib/types";
+import { useI18n } from "../lib/i18n";
 
 export function PregameState() {
   const { gameState } = useGameStore();
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerData | null>(null);
-  const sideColor = gameState.side?.includes("SALDIRAN") ? "text-accent-red" : "text-accent-cyan";
+  const { t } = useI18n();
+  const sideColor = gameState.side?.includes("SALDIRAN") || gameState.side?.includes("ATTACK") ? "text-accent-red" : "text-accent-cyan";
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-2">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-black text-warning">AJAN SEÇİMİ</span>
-        <span className={`text-xs font-semibold ${sideColor}`}>{gameState.side?.includes("SALDIRAN") ? "ATK" : "DEF"}</span>
+        <span className="text-sm font-black text-warning">{t("pregame.selecting")}</span>
+        <span className={`text-xs font-semibold ${sideColor}`}>{gameState.side?.includes("SALDIRAN") || gameState.side?.includes("ATTACK") ? "ATK" : "DEF"}</span>
       </div>
 
       {/* Map info */}
@@ -27,17 +25,15 @@ export function PregameState() {
 
       {/* Team label */}
       <div className="mb-2">
-        <span className="text-[10px] font-semibold text-dim">TAKIM</span>
+        <span className="text-[10px] font-semibold text-dim">{t("pregame.allies")}</span>
       </div>
 
       {/* Players */}
       <div className="space-y-1">
         {gameState.allies.map((player) => (
-          <PlayerCard key={player.puuid} player={player} onSelect={setSelectedPlayer} />
+          <PlayerCard key={player.puuid} player={player} />
         ))}
       </div>
-
-      <PlayerStatsModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
     </div>
   );
 }

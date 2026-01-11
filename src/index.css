@@ -18,6 +18,7 @@
     --color-party-2: #00d4aa;
     --color-party-3: #ecb22e;
     --color-party-4: #bd3fff;
+    --animate-slide-in: slide-in 0.2s ease-out;
 }
 
 @layer base {
@@ -49,4 +50,145 @@
     ::-webkit-scrollbar-thumb:hover {
         background: var(--color-dim);
     }
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Weapon Overlay Animations */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes weapon-enter {
+    0% {
+        opacity: 0;
+        transform: scale(0.8) translateY(20px);
+        filter: blur(10px);
+    }
+
+    50% {
+        filter: blur(2px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+    }
+}
+
+@keyframes glitch-shift {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    20% {
+        transform: translateX(-3px);
+    }
+
+    40% {
+        transform: translateX(3px);
+    }
+
+    60% {
+        transform: translateX(-2px);
+    }
+
+    80% {
+        transform: translateX(2px);
+    }
+}
+
+@keyframes glitch-skew {
+
+    0%,
+    100% {
+        transform: skewX(0deg);
+    }
+
+    20% {
+        transform: skewX(-2deg);
+    }
+
+    40% {
+        transform: skewX(2deg);
+    }
+
+    60% {
+        transform: skewX(-1deg);
+    }
+
+    80% {
+        transform: skewX(1deg);
+    }
+}
+
+@keyframes scan-line {
+    0% {
+        transform: translateY(-100%);
+    }
+
+    100% {
+        transform: translateY(100%);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.15s ease-out forwards;
+}
+
+.animate-weapon-enter {
+    animation: weapon-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Glitch text effect */
+.glitch-text {
+    position: relative;
+    animation: glitch-skew 0.5s ease-in-out;
+}
+
+.glitch-text-heavy {
+    position: relative;
+    animation: glitch-skew 0.3s ease-in-out;
+}
+
+.glitch-shift-r {
+    animation: glitch-shift 0.4s ease-in-out;
+}
+
+.glitch-shift-l {
+    animation: glitch-shift 0.4s ease-in-out reverse;
+}
+
+/* Glitch image effect */
+.glitch-image {
+    animation: glitch-skew 0.3s ease-in-out;
+}
+
+/* Scan lines overlay */
+.scan-lines {
+    background: repeating-linear-gradient(0deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 212, 170, 0.03) 2px,
+            rgba(0, 212, 170, 0.03) 4px);
+    animation: scan-line 3s linear infinite;
 }

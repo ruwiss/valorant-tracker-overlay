@@ -186,7 +186,7 @@ async fn get_cached_parties(
     *state.in_game_session.write() = true;
 
     // Get existing cached parties
-    let mut cached = state.cached_parties.read().clone();
+    let cached = state.cached_parties.read().clone();
 
     // Check if all players are already cached
     let all_cached = puuids.iter().all(|p| cached.contains_key(p));
@@ -203,29 +203,33 @@ async fn get_cached_parties(
             .collect()
     };
 
-    // Only fetch if there are new players
-    if !players_needing_fetch.is_empty() {
-        // Fetch parties for new players only
-        let new_parties = api.detect_parties_with_cache(puuids, &players_needing_fetch).await;
-
-        // Merge new parties into cache
-        for (puuid, party) in new_parties {
-            cached.insert(puuid, party);
-        }
-
-        // Mark these players as fetched
-        {
-            let mut fetched = state.fetched_history_players.write();
-            for p in &players_needing_fetch {
-                fetched.insert(p.clone());
+    // If no new players to fetch, return existing cache + mark missing as Solo
+    if players_needing_fetch.is_empty() {
+        let mut result = cached;
+        for puuid in puuids {
+            if !result.contains_key(puuid) {
+                result.insert(puuid.clone(), "Solo".into());
             }
         }
-
-        // Update party cache
-        *state.cached_parties.write() = cached.clone();
+        return result;
     }
 
-    cached
+    // Fetch parties - pass ALL puuids but only fetch history for new players
+    // This ensures consistent party numbering across the entire lobby
+    let new_parties = api.detect_parties_with_cache(puuids, &players_needing_fetch, &cached).await;
+
+    // Mark these players as fetched
+    {
+        let mut fetched = state.fetched_history_players.write();
+        for p in &players_needing_fetch {
+            fetched.insert(p.clone());
+        }
+    }
+
+    // Update party cache with merged result
+    *state.cached_parties.write() = new_parties.clone();
+
+    new_parties
 }
 
 #[tauri::command]

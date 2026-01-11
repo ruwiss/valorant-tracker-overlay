@@ -1,34 +1,36 @@
 import { useGameStore } from "../stores/gameStore";
+import { usePanelStore } from "../stores/panelStore";
+import { useI18n } from "../lib/i18n";
 
-interface Props {
-  onOpenAgentLock: () => void;
-  onOpenApiSettings: () => void;
-}
-
-export function Footer({ onOpenAgentLock, onOpenApiSettings }: Props) {
+export function Footer() {
   const { autoLockAgent } = useGameStore();
+  const { isOpen, panelType, openSettings, close } = usePanelStore();
+  const { t } = useI18n();
+
+  const handleSettingsClick = () => {
+    if (isOpen && panelType === "settings") {
+      close();
+    } else {
+      openSettings();
+    }
+  };
 
   return (
     <footer className="flex items-center justify-between px-4 h-10 bg-card rounded-md mt-2">
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] text-dim">AUTO-LOCK:</span>
-        <span className={`text-[11px] font-semibold ${autoLockAgent ? "text-success" : "text-secondary"}`}>{autoLockAgent?.toUpperCase() || "OFF"}</span>
+        <span className="text-[10px] text-dim">{t("footer.autoLock")}:</span>
+        <span className={`text-[11px] font-semibold ${autoLockAgent ? "text-success" : "text-secondary"}`}>{autoLockAgent?.toUpperCase() || t("footer.off")}</span>
       </div>
-      <div className="flex items-center gap-1">
-        <button onClick={onOpenAgentLock} className="w-7 h-7 flex items-center justify-center text-secondary hover:bg-card-hover rounded cursor-pointer bg-transparent border-none" title="Ajan Kilitleme">
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-          </svg>
-        </button>
-        <button onClick={onOpenApiSettings} className="w-7 h-7 flex items-center justify-center text-secondary hover:bg-card-hover rounded cursor-pointer bg-transparent border-none" title="API Ayarları">
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-          </svg>
-        </button>
-      </div>
+      <button
+        onClick={handleSettingsClick}
+        className={`w-8 h-8 flex items-center justify-center rounded-md cursor-pointer border transition-colors ${isOpen && panelType === "settings" ? "text-accent-cyan bg-accent-cyan/20 border-accent-cyan" : "text-accent-cyan hover:bg-accent-cyan/20 bg-card-hover border-border"}`}
+        title={t("settings.title")}
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
     </footer>
   );
 }

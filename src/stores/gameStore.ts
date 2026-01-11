@@ -8,13 +8,11 @@ interface GameStore {
   gameState: GameState;
   autoLockAgent: string | null;
   consecutiveErrors: number;
-  henrikApiKey: string;
 
   initialize: () => Promise<void>;
   fetchGameState: () => Promise<void>;
   reconnect: () => Promise<void>;
   setAutoLock: (agent: string | null) => void;
-  setHenrikApiKey: (key: string) => void;
 }
 
 const initialGameState: GameState = {
@@ -33,7 +31,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameState: initialGameState,
   autoLockAgent: null,
   consecutiveErrors: 0,
-  henrikApiKey: localStorage.getItem("henrikApiKey") || "",
 
   initialize: async () => {
     try {
@@ -87,10 +84,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setAutoLock: (agent) => {
     set({ autoLockAgent: agent });
     invoke("set_auto_lock", { agent });
-  },
-
-  setHenrikApiKey: (key) => {
-    localStorage.setItem("henrikApiKey", key);
-    set({ henrikApiKey: key });
   },
 }));
