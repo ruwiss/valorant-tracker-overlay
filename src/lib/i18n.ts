@@ -17,6 +17,7 @@ const translations: Record<Locale, Record<string, string>> = {
     "header.connecting": "Connecting...",
     "header.reconnect": "Reconnect",
     "header.close": "Close",
+    "header.update": "Update available",
 
     // Footer
     "footer.autoLock": "AUTO-LOCK",
@@ -65,6 +66,7 @@ const translations: Record<Locale, Record<string, string>> = {
     "header.connecting": "Bağlanıyor...",
     "header.reconnect": "Yeniden Bağlan",
     "header.close": "Kapat",
+    "header.update": "Güncelleme mevcut",
 
     // Footer
     "footer.autoLock": "OTO-KİLİT",

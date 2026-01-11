@@ -1,15 +1,23 @@
+import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { StatusIndicator } from "./StatusIndicator";
 import { useGameStore } from "../stores/gameStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { useAssetsStore } from "../stores/assetsStore";
+import { useUpdateStore } from "../stores/updateStore";
 import { useI18n } from "../lib/i18n";
 
 export function Header() {
   const { connected, region, gameState, reconnect } = useGameStore();
   const { hotkey } = useSettingsStore();
   const { getMapSplash } = useAssetsStore();
+  const { updateAvailable, updateVersion, isDownloading, downloadProgress, checkForUpdate, downloadAndInstall } = useUpdateStore();
   const { t } = useI18n();
+
+  // Check for updates on mount
+  useEffect(() => {
+    checkForUpdate();
+  }, []);
 
   const status = !connected ? "error" : gameState.state === "pregame" ? "pregame" : gameState.state === "ingame" ? "ingame" : "connected";
   const mapSplash = gameState.map_name ? getMapSplash(gameState.map_name) : null;
@@ -61,6 +69,20 @@ export function Header() {
       <div className="relative z-10 flex items-center gap-2">
         {region && <span className="text-[10px] font-semibold text-accent-cyan pointer-events-none">{region}</span>}
         <StatusIndicator status={status} />
+
+        {/* Update Button */}
+        {updateAvailable && (
+          <button onClick={downloadAndInstall} disabled={isDownloading} className="w-7 h-7 flex items-center justify-center text-accent-gold hover:bg-accent-gold/20 rounded-md transition-colors relative" title={isDownloading ? `${downloadProgress}%` : `${t("header.update")} v${updateVersion}`}>
+            {isDownloading ? (
+              <div className="w-4 h-4 border-2 border-accent-gold border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+              </svg>
+            )}
+          </button>
+        )}
+
         <button onClick={reconnect} className="w-7 h-7 flex items-center justify-center text-secondary hover:bg-card-hover rounded-md transition-colors" title={t("header.reconnect")}>
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M23 4v6h-6M1 20v-6h6" />

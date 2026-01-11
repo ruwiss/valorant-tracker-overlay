@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Signing keys
+*.key
+*.key.pub
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
