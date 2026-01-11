@@ -154,6 +154,7 @@ pub async fn get_game_state(state: State<'_, AppState>) -> Result<GameState, Str
 
     // Clear party cache when idle (no match)
     *state.parties_match_id.write() = None;
+    state.fetched_history_players.write().clear();
 
     Ok(GameState {
         state: "idle".into(),
@@ -167,22 +168,55 @@ pub async fn get_game_state(state: State<'_, AppState>) -> Result<GameState, Str
 }
 
 /// Get parties with caching - only fetches once per match_id
+/// Also tracks which players' history has been fetched to avoid duplicate API calls
 async fn get_cached_parties(
     state: &State<'_, AppState>,
     match_id: &str,
     puuids: &[String],
     api: &crate::api::ValorantAPI,
 ) -> HashMap<String, String> {
-    // Check cache
+    // Check if match changed - if so, clear player fetch cache
     {
         let cached_match = state.parties_match_id.read();
-        if cached_match.as_ref() == Some(&match_id.to_string()) {
-            return state.cached_parties.read().clone();
+        if cached_match.as_ref() != Some(&match_id.to_string()) {
+            // New match - clear the fetched players cache
+            drop(cached_match);
+            state.fetched_history_players.write().clear();
         }
     }
 
-    // Fetch fresh
-    let parties = api.detect_parties(puuids).await;
+    // Check party cache
+    {
+        let cached_match = state.parties_match_id.read();
+        if cached_match.as_ref() == Some(&match_id.to_string()) {
+            // Check if we have all players cached
+            let cached = state.cached_parties.read();
+            let all_cached = puuids.iter().all(|p| cached.contains_key(p));
+            if all_cached {
+                return cached.clone();
+            }
+        }
+    }
+
+    // Determine which players need history fetch (not fetched before this game)
+    let players_needing_fetch: Vec<String> = {
+        let fetched = state.fetched_history_players.read();
+        puuids.iter()
+            .filter(|p| !fetched.contains(*p))
+            .cloned()
+            .collect()
+    };
+
+    // Fetch parties - pass info about which players need history lookup
+    let parties = api.detect_parties_with_cache(puuids, &players_needing_fetch).await;
+
+    // Mark these players as fetched
+    {
+        let mut fetched = state.fetched_history_players.write();
+        for p in &players_needing_fetch {
+            fetched.insert(p.clone());
+        }
+    }
 
     // Update cache
     *state.parties_match_id.write() = Some(match_id.to_string());
@@ -208,4 +242,84 @@ fn get_agent_name(agent_id: &str) -> String {
         }
     }
     String::new()
+}
+
+#[tauri::command]
+pub async fn get_player_loadout(
+    state: State<'_, AppState>,
+    puuid: String,
+) -> Result<Option<crate::api::types::PlayerSkinData>, String> {
+    let api = &state.api;
+
+    if !*api.connected.read() {
+        return Err("Not connected".into());
+    }
+
+    // Check cache first
+    {
+        let cached = state.cached_loadouts.read();
+        if let Some(loadout) = cached.get(&puuid) {
+            return Ok(Some(loadout.clone()));
+        }
+    }
+
+    // Get current match id
+    let match_id = if let Some(id) = api.get_coregame_match_id().await {
+        id
+    } else {
+        return Err("Not in game".into());
+    };
+
+    // Check if match changed - clear cache
+    {
+        let cached_match = state.loadouts_match_id.read();
+        if cached_match.as_ref() != Some(&match_id) {
+            drop(cached_match);
+            state.cached_loadouts.write().clear();
+            *state.loadouts_match_id.write() = Some(match_id.clone());
+        }
+    }
+
+    // Fetch all loadouts for this match
+    if let Some(loadouts_response) = api.get_coregame_loadouts(&match_id).await {
+        let mut cache = state.cached_loadouts.write();
+
+        for player_loadout in loadouts_response.loadouts {
+            let player_puuid = player_loadout.loadout.subject.clone();
+            let mut skins = Vec::new();
+
+            for (weapon_id, item) in player_loadout.loadout.items {
+                let mut chroma_id = None;
+
+                // Get chroma from sockets if available
+                if let Some(sockets) = &item.sockets {
+                    for (_socket_id, socket_item) in sockets {
+                        // Chroma type ID
+                        if socket_item.item.type_id == "3ad1b2b2-acdb-4524-852f-954a76ddae0a" {
+                            chroma_id = Some(socket_item.item.id.clone());
+                        }
+                    }
+                }
+
+                skins.push(crate::api::types::WeaponSkin {
+                    weapon_id,
+                    skin_id: item.id,
+                    chroma_id,
+                });
+            }
+
+            cache.insert(
+                player_puuid.clone(),
+                crate::api::types::PlayerSkinData {
+                    puuid: player_puuid,
+                    skins,
+                },
+            );
+        }
+
+        // Return requested player's loadout
+        return Ok(cache.get(&puuid).cloned());
+    }
+
+    Ok(None)
 }

@@ -315,10 +315,12 @@ impl ValorantAPI {
     }
 
     /// Detect parties for a list of players
+    /// Uses multiple strategies: my party, presences (friends), and match history
     pub async fn detect_parties(&self, puuids: &[String]) -> HashMap<String, String> {
         let mut party_map: HashMap<String, String> = HashMap::new();
         let mut party_counter: HashMap<String, u32> = HashMap::new();
         let mut next_party_num: u32 = 1;
+        let mut found_via_presence: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         // Get my party info
         let (my_party_id, my_party_members) = self.get_my_party().await;
@@ -335,6 +337,7 @@ impl ValorantAPI {
                         next_party_num += 1;
                     }
                     party_map.insert(puuid.clone(), format!("Grup-{}", party_counter[my_pid]));
+                    found_via_presence.insert(puuid.clone());
                     continue;
                 }
             }
@@ -346,7 +349,44 @@ impl ValorantAPI {
                     next_party_num += 1;
                 }
                 party_map.insert(puuid.clone(), format!("Grup-{}", party_counter[friend_party_id]));
-            } else {
+                found_via_presence.insert(puuid.clone());
+            }
+        }
+
+        // For players not found via presence, try match history method
+        let unknown_puuids: Vec<String> = puuids
+            .iter()
+            .filter(|p| !found_via_presence.contains(*p))
+            .cloned()
+            .collect();
+
+        if !unknown_puuids.is_empty() {
+            // Try to get party info from match history
+            let history_parties = self.detect_parties_via_history(&unknown_puuids).await;
+
+            for (puuid, party_tag) in history_parties {
+                if !party_map.contains_key(&puuid) {
+                    // Renumber the groups to continue from where we left off
+                    if party_tag.starts_with("Grup-") {
+                        let new_tag = format!("Grup-{}", next_party_num);
+                        // Check if this is a new group we haven't seen
+                        let existing_count = party_map.values().filter(|v| *v == &party_tag).count();
+                        if existing_count == 0 {
+                            party_map.insert(puuid, new_tag);
+                            next_party_num += 1;
+                        } else {
+                            party_map.insert(puuid, party_tag);
+                        }
+                    } else {
+                        party_map.insert(puuid, party_tag);
+                    }
+                }
+            }
+        }
+
+        // Mark remaining as Solo
+        for puuid in puuids {
+            if !party_map.contains_key(puuid) {
                 party_map.insert(puuid.clone(), "Solo".into());
             }
         }
@@ -357,7 +397,7 @@ impl ValorantAPI {
             *party_sizes.entry(tag.clone()).or_insert(0) += 1;
         }
 
-        for (puuid, tag) in party_map.iter_mut() {
+        for (_puuid, tag) in party_map.iter_mut() {
             if party_sizes.get(tag).copied().unwrap_or(0) == 1 {
                 *tag = "Solo".into();
             }
@@ -377,5 +417,209 @@ impl ValorantAPI {
             }
         }
         (0, 0)
+    }
+
+    /// Get match history for a player (last N matches)
+    pub async fn get_match_history(&self, puuid: &str, count: u32) -> Vec<String> {
+        let url = self.pd_url(&format!(
+            "/match-history/v1/history/{}?startIndex=0&endIndex={}",
+            puuid, count
+        ));
+
+        if let Some(data) = self.get_remote::<MatchHistoryResponse>(&url).await {
+            if let Some(history) = data.history {
+                return history.into_iter().map(|h| h.match_id).collect();
+            }
+        }
+        vec![]
+    }
+
+    /// Get match details (contains partyId for all players)
+    pub async fn get_match_details(&self, match_id: &str) -> Option<MatchDetailsResponse> {
+        let url = self.pd_url(&format!("/match-details/v1/matches/{}", match_id));
+        self.get_remote(&url).await
+    }
+
+    /// Detect parties using match history - checks last match for party groupings
+    /// This works for ALL players including enemies and non-friends
+    pub async fn detect_parties_via_history(&self, puuids: &[String]) -> HashMap<String, String> {
+        let mut party_map: HashMap<String, String> = HashMap::new();
+        let mut party_counter: HashMap<String, u32> = HashMap::new();
+        let mut next_party_num: u32 = 1;
+
+        // We need to find a common recent match to get party info
+        // Strategy: Get last 2 matches of first player for better coverage
+
+        if puuids.is_empty() {
+            return party_map;
+        }
+
+        // Get last 2 matches of first player
+        let first_puuid = &puuids[0];
+        let match_ids = self.get_match_history(first_puuid, 2).await;
+
+        // Collect party info from both matches
+        let mut all_match_parties: HashMap<String, String> = HashMap::new();
+
+        for match_id in &match_ids {
+            if let Some(details) = self.get_match_details(match_id).await {
+                if let Some(players) = details.players {
+                    for p in players {
+                        // Only add if not already found (prefer more recent match)
+                        if !all_match_parties.contains_key(&p.subject) {
+                            all_match_parties.insert(p.subject.clone(), p.party_id.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Map party IDs to group numbers for target puuids
+        for puuid in puuids {
+            if let Some(party_id) = all_match_parties.get(puuid) {
+                if !party_id.is_empty() {
+                    if !party_counter.contains_key(party_id) {
+                        party_counter.insert(party_id.clone(), next_party_num);
+                        next_party_num += 1;
+                    }
+                    party_map.insert(puuid.clone(), format!("Grup-{}", party_counter[party_id]));
+                } else {
+                    party_map.insert(puuid.clone(), "Solo".into());
+                }
+            }
+        }
+
+        // For any puuids not found in the matches, mark as solo
+        for puuid in puuids {
+            if !party_map.contains_key(puuid) {
+                party_map.insert(puuid.clone(), "Solo".into());
+            }
+        }
+
+        // Filter single-person groups (they're actually solo)
+        let mut party_sizes: HashMap<String, u32> = HashMap::new();
+        for tag in party_map.values() {
+            *party_sizes.entry(tag.clone()).or_insert(0) += 1;
+        }
+
+        for (_puuid, tag) in party_map.iter_mut() {
+            if tag.starts_with("Grup-") && party_sizes.get(tag).copied().unwrap_or(0) == 1 {
+                *tag = "Solo".into();
+            }
+        }
+
+        party_map
+    }
+
+    /// Get current game loadouts for all players
+    pub async fn get_coregame_loadouts(&self, match_id: &str) -> Option<LoadoutsResponse> {
+        let url = self.glz_url(&format!("/core-game/v1/matches/{}/loadouts", match_id));
+        self.get_remote(&url).await
+    }
+
+    /// Detect parties with player-level caching
+    /// Only fetches match history for players in `players_to_fetch` (once per game session)
+    pub async fn detect_parties_with_cache(
+        &self,
+        all_puuids: &[String],
+        players_to_fetch: &[String]
+    ) -> HashMap<String, String> {
+        let mut party_map: HashMap<String, String> = HashMap::new();
+        let mut party_id_to_num: HashMap<String, u32> = HashMap::new();
+        let mut next_party_num: u32 = 1;
+
+        // Step 1: Get my party and presences (fast, no rate limit concern)
+        let (my_party_id, my_party_members) = self.get_my_party().await;
+        let presences = self.get_presences().await;
+
+        let mut found_via_presence: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        for puuid in all_puuids {
+            // Check my party
+            if let Some(ref my_pid) = my_party_id {
+                if my_party_members.contains(puuid) {
+                    if !party_id_to_num.contains_key(my_pid) {
+                        party_id_to_num.insert(my_pid.clone(), next_party_num);
+                        next_party_num += 1;
+                    }
+                    party_map.insert(puuid.clone(), format!("Grup-{}", party_id_to_num[my_pid]));
+                    found_via_presence.insert(puuid.clone());
+                    continue;
+                }
+            }
+
+            // Check presences (friends)
+            if let Some(friend_party_id) = presences.get(puuid) {
+                if !party_id_to_num.contains_key(friend_party_id) {
+                    party_id_to_num.insert(friend_party_id.clone(), next_party_num);
+                    next_party_num += 1;
+                }
+                party_map.insert(puuid.clone(), format!("Grup-{}", party_id_to_num[friend_party_id]));
+                found_via_presence.insert(puuid.clone());
+            }
+        }
+
+        // Step 2: For players not found via presence AND in players_to_fetch, use match history
+        let need_history: Vec<String> = players_to_fetch
+            .iter()
+            .filter(|p| !found_via_presence.contains(*p))
+            .cloned()
+            .collect();
+
+        if !need_history.is_empty() {
+            // Pick first player that needs history to fetch last 2 matches
+            if let Some(first_puuid) = need_history.first() {
+                let match_ids = self.get_match_history(first_puuid, 2).await;
+
+                // Collect party info from matches
+                let mut match_parties: HashMap<String, String> = HashMap::new();
+
+                for match_id in &match_ids {
+                    if let Some(details) = self.get_match_details(match_id).await {
+                        if let Some(players) = details.players {
+                            for p in players {
+                                if !match_parties.contains_key(&p.subject) {
+                                    match_parties.insert(p.subject.clone(), p.party_id.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Apply party info to players needing history
+                for puuid in &need_history {
+                    if let Some(party_id) = match_parties.get(puuid) {
+                        if !party_id.is_empty() {
+                            if !party_id_to_num.contains_key(party_id) {
+                                party_id_to_num.insert(party_id.clone(), next_party_num);
+                                next_party_num += 1;
+                            }
+                            party_map.insert(puuid.clone(), format!("Grup-{}", party_id_to_num[party_id]));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Step 3: Mark remaining as Solo
+        for puuid in all_puuids {
+            if !party_map.contains_key(puuid) {
+                party_map.insert(puuid.clone(), "Solo".into());
+            }
+        }
+
+        // Step 4: Filter single-person groups
+        let mut party_sizes: HashMap<String, u32> = HashMap::new();
+        for tag in party_map.values() {
+            *party_sizes.entry(tag.clone()).or_insert(0) += 1;
+        }
+
+        for (_puuid, tag) in party_map.iter_mut() {
+            if tag.starts_with("Grup-") && party_sizes.get(tag).copied().unwrap_or(0) == 1 {
+                *tag = "Solo".into();
+            }
+        }
+
+        party_map
     }
 }

@@ -202,3 +202,108 @@ pub struct CompetitiveSkill {
     pub competitive_tier: Option<u32>,
     pub ranked_rating: Option<u32>,
 }
+
+// Match History types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MatchHistoryResponse {
+    pub subject: Option<String>,
+    pub history: Option<Vec<MatchHistoryEntry>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MatchHistoryEntry {
+    #[serde(rename = "MatchID")]
+    pub match_id: String,
+    pub game_start_time: Option<u64>,
+    #[serde(rename = "QueueID")]
+    pub queue_id: Option<String>,
+}
+
+// Match Details types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchDetailsResponse {
+    pub match_info: Option<MatchInfo>,
+    pub players: Option<Vec<MatchPlayer>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchInfo {
+    pub match_id: Option<String>,
+    #[serde(rename = "queueID")]
+    pub queue_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchPlayer {
+    pub subject: String,
+    pub party_id: String,
+    pub team_id: Option<String>,
+}
+
+// Loadout types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct LoadoutsResponse {
+    pub loadouts: Vec<PlayerLoadout>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PlayerLoadout {
+    #[serde(rename = "CharacterID")]
+    pub character_id: String,
+    pub loadout: LoadoutData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct LoadoutData {
+    pub subject: String,
+    pub items: std::collections::HashMap<String, LoadoutItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct LoadoutItem {
+    #[serde(rename = "ID")]
+    pub id: String,
+    #[serde(rename = "TypeID")]
+    pub type_id: String,
+    pub sockets: Option<std::collections::HashMap<String, SocketItem>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct SocketItem {
+    #[serde(rename = "ID")]
+    pub id: String,
+    pub item: SocketItemData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct SocketItemData {
+    #[serde(rename = "ID")]
+    pub id: String,
+    #[serde(rename = "TypeID")]
+    pub type_id: String,
+}
+
+// Frontend loadout response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerSkinData {
+    pub puuid: String,
+    pub skins: Vec<WeaponSkin>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WeaponSkin {
+    pub weapon_id: String,
+    pub skin_id: String,
+    pub chroma_id: Option<String>,
+}

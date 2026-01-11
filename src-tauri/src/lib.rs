@@ -18,6 +18,7 @@ pub fn run() {
             commands::get_game_state,
             commands::set_auto_lock,
             commands::get_auto_lock,
+            commands::get_player_loadout,
         ])
         .setup(|app| {
             // Window starts hidden, F2 toggles visibility
